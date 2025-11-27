@@ -1,34 +1,16 @@
 package com.mycompany.assignmentcode;
 
-import java.util.ArrayList;
-import javax.swing.JOptionPane;
-import javax.swing.table.DefaultTableModel;
+import EligibilityCheckandEnrolment.EnrolStudentForRecovery;
 
-/**
- * @author tan28
- */
 public class Enrol_Student_for_Recovery extends javax.swing.JFrame {
 
-    private GradeLogic logic;
+    private EnrolStudentForRecovery logic;
 
     public Enrol_Student_for_Recovery() {
         initComponents();
-        logic = new GradeLogic();
-        refreshTable();
-    }
-
-    private void refreshTable() {
-        String[] columns = {
-            "Student Name", "Student ID", "Course Name", 
-            "Exam Mark", "Assignment Mark", "Final Grade", "Grade Point"
-        };
-        DefaultTableModel model = new DefaultTableModel(columns, 0);
-        
-        ArrayList<String[]> data = logic.getAllMarksForTable();
-        for (String[] row : data) {
-            model.addRow(row);
-        }
-        eligibility_Tlb.setModel(model);
+        logic = new EnrolStudentForRecovery();
+        // The logic class now handles refreshing the table initially too
+        logic.refreshTable(eligibility_Tlb);
     }
     /**
      * This method is called from within the constructor to initialize the form.
@@ -228,85 +210,20 @@ public class Enrol_Student_for_Recovery extends javax.swing.JFrame {
     }// </editor-fold>                        
 
     private void UtdGrd_btnActionPerformed(java.awt.event.ActionEvent evt) {                                           
-        String name = StdNm_txt1.getText().trim();
-        String id = StdID_txt.getText().trim();
-        String courseID = Course_txt.getText().trim();
-        String exam = ExamMk_txt.getText().trim();
-        String assign = AssmMk_txt.getText().trim();
-
-        if (id.isEmpty() || courseID.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Enter ID and Course ID.");
-            return;
-        }
-
-        boolean success = logic.updateStudentGrade(name, id, courseID, exam, assign);
-        if (success) {
-            JOptionPane.showMessageDialog(this, "Updated Successfully!");
-            refreshTable();
-        } else {
-            JOptionPane.showMessageDialog(this, "Update Failed. Check IDs.");
-        }
+       logic.updateGrade(this, eligibility_Tlb, StdID_txt, Course_txt, ExamMk_txt, AssmMk_txt);
     }                                          
 
     private void SendEm_btnActionPerformed(java.awt.event.ActionEvent evt) {                                           
-        int row = eligibility_Tlb.getSelectedRow();
-        if (row == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a student row to send email.");
-            return;
-        }
-
-        String name = eligibility_Tlb.getValueAt(row, 0).toString(); 
-        String course = eligibility_Tlb.getValueAt(row, 2).toString(); 
-        String grade = eligibility_Tlb.getValueAt(row, 5).toString(); 
-        
-        String status = (grade.equalsIgnoreCase("F") || grade.equalsIgnoreCase("D")) ? "Failed" : "Pass";
-
-        String myTestEmail = "tan28174@gmail.com";
-
-        String message = logic.sendRecoveryEmail(name, course, status, myTestEmail);
-        JOptionPane.showMessageDialog(this, message);
+       logic.sendRecoveryEmail(this, eligibility_Tlb);
     }                                          
 
     private void Del_btnActionPerformed(java.awt.event.ActionEvent evt) {                                        
-        String id = StdID_txt.getText().trim();
-        String courseID = Course_txt.getText().trim();
-
-        if (id.isEmpty() || courseID.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Enter Student ID and Course ID.");
-            return;
-        }
-
-        int confirm = JOptionPane.showConfirmDialog(this, "Delete record?", "Confirm", JOptionPane.YES_NO_OPTION);
-        if (confirm == JOptionPane.YES_OPTION) {
-            if (logic.deleteStudent(id, courseID)) {
-                JOptionPane.showMessageDialog(this, "Deleted Successfully!");
-                refreshTable();
-            } else {
-                JOptionPane.showMessageDialog(this, "Delete Failed.");
-            }
-        }
+        logic.deleteGrade(this, eligibility_Tlb, StdID_txt, Course_txt);
     }                                       
 
     private void Add_btnActionPerformed(java.awt.event.ActionEvent evt) {                                        
-        String name = StdNm_txt1.getText().trim();
-        String id = StdID_txt.getText().trim();
-        String courseID = Course_txt.getText().trim();
-        String exam = ExamMk_txt.getText().trim();
-        String assign = AssmMk_txt.getText().trim();
-
-        if (id.isEmpty() || courseID.isEmpty() || exam.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please fill Name, ID, Course ID, and Marks.");
-            return;
-        }
-
-        String result = logic.addStudent(name, id, courseID, exam, assign);
-        
-        if (result.equals("Success")) {
-            JOptionPane.showMessageDialog(this, "Grade Added Successfully!");
-            refreshTable();
-        } else {
-            JOptionPane.showMessageDialog(this, result);
-        }
+        // ONE LINE call. Logic handles extraction, validation, saving, refreshing, and clearing fields.
+        logic.addGrade(this, eligibility_Tlb, StdNm_txt1, StdID_txt, Course_txt, ExamMk_txt, AssmMk_txt);
     }                                       
 
     private void ExamMk_txtActionPerformed(java.awt.event.ActionEvent evt) {                                           
@@ -324,12 +241,7 @@ public class Enrol_Student_for_Recovery extends javax.swing.JFrame {
     /**
      * @param args the command line arguments
      */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
+   public static void main(String args[]) {
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -337,19 +249,10 @@ public class Enrol_Student_for_Recovery extends javax.swing.JFrame {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Enrol_Student_for_Recovery.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Enrol_Student_for_Recovery.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Enrol_Student_for_Recovery.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (Exception ex) {
             java.util.logging.Logger.getLogger(Enrol_Student_for_Recovery.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        //</editor-fold>
-        //</editor-fold>
 
-        /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 new Enrol_Student_for_Recovery().setVisible(true);
