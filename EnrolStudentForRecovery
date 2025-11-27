@@ -1,9 +1,291 @@
 package EligibilityCheckandEnrolment;
 
-/**
- *
- * @author tan28
- */
+import java.io.*;
+import java.util.ArrayList;
+
 public class EnrolStudentForRecovery {
-    
+
+    private final String MARK_FILE = "StudentMark.txt";
+    private final String STUDENT_FILE = "StudentInfo.txt";
+    private final String COURSE_FILE = "CourseAssessInfo.txt";
+
+    public EnrolStudentForRecovery() {
+    }
+
+    // --- READ DATA (Same as before) ---
+    public ArrayList<String[]> getAllEnrolmentData() {
+        ArrayList<String[]> resultList = new ArrayList<>();
+        ArrayList<String[]> marks = loadFile(MARK_FILE);
+        ArrayList<String[]> students = loadFile(STUDENT_FILE);
+        ArrayList<String[]> courses = loadFile(COURSE_FILE);
+
+        for (String[] mark : marks) {
+            if (mark.length < 6) continue;
+            String stdID = mark[0];
+            String crsID = mark[1];
+
+            String name = "Unknown";
+            for (String[] s : students) {
+                if (s.length > 2 && s[0].equalsIgnoreCase(stdID)) { name = s[1] + " " + s[2]; break; }
+            }
+            String courseName = crsID; 
+            for(String[] c : courses) {
+                if(c.length > 1 && c[0].equalsIgnoreCase(crsID)) { courseName = c[1]; break; }
+            }
+            resultList.add(new String[]{ name, stdID, courseName, mark[2], mark[3], mark[4], mark[5] });
+        }
+        return resultList;
+    }
+
+    // --- LOGIC: ADD GRADE (With Validation) ---
+    public String addGrade(String stdID, String courseID, String examMk, String assignMk) {
+        // 1. Validation: Check for empty fields
+        if (stdID.isEmpty() || courseID.isEmpty() || examMk.isEmpty() || assignMk.isEmpty()) {
+            return "Please fill all fields (ID, Course, Exam, Assignment).";
+        }
+
+        // 2. Validation: Check if marks are numbers
+        try {
+            Double.parseDouble(examMk);
+            Double.parseDouble(assignMk);
+        } catch (NumberFormatException e) {
+            return "Error: Exam and Assignment marks must be numbers.";
+        }
+
+        ArrayList<String[]> allData = loadFile(MARK_FILE);
+        
+        // 3. Check for Duplicates
+        for(String[] row : allData) {
+            if(row.length > 1 && row[0].equalsIgnoreCase(stdID) && row[1].equalsIgnoreCase(courseID)) {
+                return "Error: Student already enrolled in this course.";
+            }
+        }
+        
+        // 4. Calculate and Save
+        String[] gradeResult = calculateGradeAndGP(examMk, assignMk);
+        String[] newRow = {stdID, courseID, examMk, assignMk, gradeResult[0], gradeResult[1]};
+        allData.add(newRow);
+        
+        saveFile(MARK_FILE, allData);
+        return "Success";
+    }
+
+    // --- LOGIC: UPDATE GRADE (With Validation) ---
+    public String updateGrade(String stdID, String courseID, String examMk, String assignMk) {
+        // 1. Validation: Check for empty fields
+        if (stdID.isEmpty() || courseID.isEmpty()) {
+            return "Please enter Student ID and Course ID to update.";
+        }
+        
+        // 2. Validation: Check if marks are valid numbers (if provided)
+        // Note: If you want to allow updating just one mark, logic would be more complex. 
+        // Here we assume user provides both new marks.
+        if (examMk.isEmpty() || assignMk.isEmpty()) {
+             return "Please provide both Exam and Assignment marks for the update.";
+        }
+
+        try {
+            Double.parseDouble(examMk);
+            Double.parseDouble(assignMk);
+        } catch (NumberFormatException e) {
+            return "Error: Marks must be valid numbers.";
+        }
+
+        ArrayList<String[]> allData = loadFile(MARK_FILE);
+        boolean found = false;
+        String[] gradeResult = calculateGradeAndGP(examMk, assignMk);
+
+        for (int i = 0; i < allData.size(); i++) {
+            String[] row = allData.get(i);
+            if (row.length > 1 && row[0].equalsIgnoreCase(stdID) && row[1].equalsIgnoreCase(courseID)) {
+                row[2] = examMk;
+                row[3] = assignMk;
+                row[4] = gradeResult[0]; // Recalculate Grade
+                row[5] = gradeResult[1]; // Recalculate GP
+                allData.set(i, row);
+                found = true;
+                break;
+            }
+        }
+        
+        if (found) {
+            saveFile(MARK_FILE, allData);
+            return "Success";
+        } else {
+            return "Error: Student ID or Course ID not found.";
+        }
+    }
+
+    // --- LOGIC: DELETE GRADE (With Validation) ---
+    public String deleteGrade(String stdID, String courseID) {
+        // 1. Validation
+        if (stdID.isEmpty() || courseID.isEmpty()) {
+            return "Please enter Student ID and Course ID to delete.";
+        }
+
+        ArrayList<String[]> allData = loadFile(MARK_FILE);
+        ArrayList<String[]> newData = new ArrayList<>();
+        boolean found = false;
+
+        for (String[] row : allData) {
+            if (row.length > 1 && row[0].equalsIgnoreCase(stdID) && row[1].equalsIgnoreCase(courseID)) {
+                found = true; 
+            } else {
+                newData.add(row);
+            }
+        }
+        
+        if (found) {
+            saveFile(MARK_FILE, newData);
+            return "Success";
+        } else {
+            return "Error: Record not found.";
+        }
+    }
+
+    // --- LOGIC: EMAIL (No changes, just helper) ---
+    public String sendRecoveryEmail(String name, String course, String grade) {
+        if(name.isEmpty() || course.isEmpty()) return "Error: Select a row first.";
+        
+        String status = (grade.equalsIgnoreCase("F") || grade.equalsIgnoreCase("D")) ? "Failed" : "Pass";
+        return "Email simulated to " + name + "\nRegarding: " + course + "\nStatus: " + status;
+    }
+
+    // --- HELPERS (Private) ---
+    private String[] calculateGradeAndGP(String examStr, String assignStr) {
+        try {
+            double ex = Double.parseDouble(examStr);
+            double as = Double.parseDouble(assignStr);
+            double total = (ex + as) / 2.0; 
+            String grade;
+            if (total >= 70) grade = "A";
+            else if (total >= 60) grade = "B";
+            else if (total >= 50) grade = "C";
+            else if (total >= 40) grade = "D";
+            else grade = "F";
+            
+            String gp = (grade.equals("F")) ? "0.0" : "4.0"; // Simplified GP logic
+            return new String[]{grade, gp};
+        } catch (Exception e) {
+            return new String[]{"F", "0.0"};
+        }
+    }
+
+    private ArrayList<String[]> loadFile(String filename) {
+        ArrayList<String[]> data = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            boolean firstLine = true;
+            while ((line = br.readLine()) != null) {
+                if (firstLine) { firstLine = false; continue; }
+                if (!line.trim().isEmpty()) data.add(line.split(","));
+            }
+        } catch (IOException e) { e.printStackTrace(); }
+        return data;
+    }
+
+    private void saveFile(String filename, ArrayList<String[]> data) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(filename))) {
+            bw.write("StudentID,CourseID,ExamMark,AssignmentMark,FinalGrade,GradePoint");
+            bw.newLine();
+            for (String[] row : data) {
+                bw.write(String.join(",", row));
+                bw.newLine();
+            }
+        } catch (IOException e) { e.printStackTrace(); }
+    }
 }
+
+private void UtdGrd_btnActionPerformed(java.awt.event.ActionEvent evt) {                                           
+        String name = StdNm_txt1.getText().trim();
+        String id = StdID_txt.getText().trim();
+        String courseID = Course_txt.getText().trim();
+        String exam = ExamMk_txt.getText().trim();
+        String assign = AssmMk_txt.getText().trim();
+
+        if (id.isEmpty() || courseID.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter ID and Course ID.");
+            return;
+        }
+
+        boolean success = logic.updateStudentGrade(name, id, courseID, exam, assign);
+        if (success) {
+            JOptionPane.showMessageDialog(this, "Updated Successfully!");
+            refreshTable();
+        } else {
+            JOptionPane.showMessageDialog(this, "Update Failed. Check IDs.");
+        }
+    }    
+
+private void SendEm_btnActionPerformed(java.awt.event.ActionEvent evt) {                                           
+        int row = eligibility_Tlb.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a student row to send email.");
+            return;
+        }
+
+        String name = eligibility_Tlb.getValueAt(row, 0).toString(); 
+        String course = eligibility_Tlb.getValueAt(row, 2).toString(); 
+        String grade = eligibility_Tlb.getValueAt(row, 5).toString(); 
+        
+        String status = (grade.equalsIgnoreCase("F") || grade.equalsIgnoreCase("D")) ? "Failed" : "Pass";
+
+        String myTestEmail = "tan28174@gmail.com";
+
+        String message = logic.sendRecoveryEmail(name, course, status, myTestEmail);
+        JOptionPane.showMessageDialog(this, message);
+    }   
+
+private void Del_btnActionPerformed(java.awt.event.ActionEvent evt) {                                        
+        String id = StdID_txt.getText().trim();
+        String courseID = Course_txt.getText().trim();
+
+        if (id.isEmpty() || courseID.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter Student ID and Course ID.");
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Delete record?", "Confirm", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (logic.deleteStudent(id, courseID)) {
+                JOptionPane.showMessageDialog(this, "Deleted Successfully!");
+                refreshTable();
+            } else {
+                JOptionPane.showMessageDialog(this, "Delete Failed.");
+            }
+        }
+    }
+
+private void Add_btnActionPerformed(java.awt.event.ActionEvent evt) {                                        
+        String name = StdNm_txt1.getText().trim();
+        String id = StdID_txt.getText().trim();
+        String courseID = Course_txt.getText().trim();
+        String exam = ExamMk_txt.getText().trim();
+        String assign = AssmMk_txt.getText().trim();
+
+        if (id.isEmpty() || courseID.isEmpty() || exam.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please fill Name, ID, Course ID, and Marks.");
+            return;
+        }
+
+        String result = logic.addStudent(name, id, courseID, exam, assign);
+        
+        if (result.equals("Success")) {
+            JOptionPane.showMessageDialog(this, "Grade Added Successfully!");
+            refreshTable();
+        } else {
+            JOptionPane.showMessageDialog(this, result);
+        }
+    }                                       
+
+    private void ExamMk_txtActionPerformed(java.awt.event.ActionEvent evt) {                                           
+        
+    }                                          
+
+    private void AssmMk_txtActionPerformed(java.awt.event.ActionEvent evt) {                                           
+        
+    }                                          
+
+    private void StdNm_txt1ActionPerformed(java.awt.event.ActionEvent evt) {                                           
+        
+    }
